@@ -1,0 +1,38 @@
+.movie-listing .listing-output .row{
+	border:1px solid #828282;
+	margin:5px 0;
+	padding:5px 0;
+}
+div.ccm-page main a,.movie-listing .listing-output .row a{
+	font-size:15px;
+	color:#9A9A9A;
+}
+.movie-listing .listing-output .row h4{
+	padding:0;
+	margin:0;
+	font-size: 1.2em;
+	font-weight:700 !important;
+	color:#ca0012 !important;
+}
+#listing-date-soon{
+	font-size:23px;
+	margin-bottom:40px;
+}
+.movie-listing .listing-output .row .buy-tickets a{
+	display:inline-block;
+	background:#f15500;
+	padding:10px;
+	padding-right:10px !important;
+	border-radius:5px;
+	color:#fff !important;
+	margin-bottom:4px;
+}
+.buy-tickets a{
+	display:inline-block;
+	background:#f15500;
+	padding:10px;
+	padding-right:10px !important;
+	border-radius:5px;
+	color:#fff !important;
+	margin-bottom: 3px;
+}
