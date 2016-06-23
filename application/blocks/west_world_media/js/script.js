@@ -20,46 +20,105 @@ $(function(){
 		maxTickets: [0,1,2,3,4,5,6,7,8,9,10],
 		selTime: '',
 		selShow: {},
+		selShowID: '',
 		selTickets: {},
 		selTicketsQty: [],
+		customerInfo: {},
 		convFee: 1.35,
 		orderSum: 0,
 		email: '',
+		defMaxSales: 64,
 		validateEmail: function(email) {
 			var re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 			return re.test(email);
 		},
-		submitOrder: function(showID,movieID){
+		submitOrder: function(movieID){
 			var movieInfo = movieData[movieID],
-				order = {};
+				order = {},
+				custInfoErr = 0,
+				custInfoEntryErr = 0,
+				customerInfo = {},
+				hcp = '',
+				emlLngth = 0;
 				
 			// pull assigned email
 			if(!orderSys.validateEmail(orderSys.email)){
 				orderSys.email = $('.rtsEmail').val();
 			}
+			
+			// customer info validate
+			if(!$('.fullNameValidate').val() && typeof orderSys.customerInfo.fullName === 'undefined'){
+				custInfoErr = 1;
+			}
+			if(!$('.orderAddressValidate').val() && typeof orderSys.customerInfo.streetAddress === 'undefined'){
+				custInfoErr = 1;
+			}
+			if($('.zipCodeValidate').val()){
+				emlLngth = $('.zipCodeValidate').val().length;
+			} else if(typeof orderSys.customerInfo.zipCode !== 'undefined') {
+				emlLngth = orderSys.customerInfo.zipCode.length;
+			}
+			if(!$('.zipCodeValidate').val() && typeof orderSys.customerInfo.zipCode === 'undefined'){
+				custInfoErr = 1;
+			} else {
+				if(emlLngth <= 4){
+					custInfoErr = 1;
+				}
+			}
+
+			// check for valid customer information before submission
+			if(!orderSys.validateEmail(orderSys.email) || orderSys.email.length === 0 || $('.rtsEmail').val() !== $('.rtsEmailValidate').val() || custInfoErr){
+				// reset warnings
+				$('.modal-body .mismatch').remove();
 				
-			// check for valid email before submission
-			if(!orderSys.validateEmail(orderSys.email)){
+				// validate email
+				if(!orderSys.validateEmail(orderSys.email)){
+					$('.modal-body').prepend('<div class="alert alert-warning mismatch" role="alert">Please enter a valid email address before continuing!</div>');
+				}
 				
-				if(!$('.modal-body .alert-warning').length){
-					$('.modal-body').prepend('<div class="alert alert-warning" role="alert">Please enter a valid email address before continuing!</div>');
+				if($('.rtsEmail').val() !== $('.rtsEmailValidate').val()){
+					$('.modal-body').prepend('<div class="alert alert-warning mismatch" role="alert">Email addresses do not match!</div>');
+				}
+				
+				// validate other user data
+				if(!$('.fullNameValidate').val() && typeof orderSys.customerInfo.fullName === 'undefined'){
+					$('.modal-body').prepend('<div class="alert alert-warning mismatch" role="alert">You must enter your full name as designated on your selected payment method.</div>');
+				}
+				if(!$('.orderAddressValidate').val() && typeof orderSys.customerInfo.streetAddress === 'undefined'){
+					$('.modal-body').prepend('<div class="alert alert-warning mismatch" role="alert">You must enter the street address as designated on your selected payment method.</div>');
+				}
+				if(!$('.zipCodeValidate').val() && typeof orderSys.customerInfo.zipCode === 'undefined'){
+					$('.modal-body').prepend('<div class="alert alert-warning mismatch" role="alert">You must enter the valid zip or postal code as designated on your selected payment method.</div>');
+				}
+				if($('.zipCodeValidate').val() && typeof orderSys.customerInfo.zipCode === 'undefined'){
+					if($('.zipCodeValidate').val().length <= 4){
+						$('.modal-body').prepend('<div class="alert alert-warning mismatch" role="alert">You must enter the valid zip or postal code as designated on your selected payment method.</div>');
+					}
 				}
 				
 			} else {
-
+				
+				// store customer info for request values
+				customerInfo.fullName = $('.fullNameValidate').val() || orderSys.customerInfo.fullName;
+				customerInfo.address = $('.orderAddressValidate').val() || orderSys.customerInfo.streetAddress;
+				customerInfo.zip = $('.zipCodeValidate').val() || orderSys.customerInfo.zipCode;
+				
 				// generate host checkout payment
-				var hcp = '<Request>';
-					hcp += '<Version>1</Version>';
-					hcp += '<Command>CreatePayment</Command>';
-					hcp += '<Data>';
-					hcp += '<Packet>';
-					hcp += '<ChargeAmount>'+orderSys.orderSum+'</ChargeAmount>';
-					hcp += '<ProcessCompleteUrl>'+encodeURI('https://beachmoviebistro.com/rts/procComp.php')+'</ProcessCompleteUrl>';
-					hcp += '<ReturnUrl>'+encodeURI('https://beachmoviebistro.com/showtimes')+'</ReturnUrl>';
-					hcp += '</Packet>';
-					hcp += '</Data>';
-					hcp += '</Request>';
-					
+				hcp = '<Request>';
+				hcp += '<Version>1</Version>';
+				hcp += '<Command>CreatePayment</Command>';
+				hcp += '<Data>';
+				hcp += '<Packet>';
+				hcp += '<ChargeAmount>'+orderSys.orderSum+'</ChargeAmount>';
+				hcp += '<StreetAddress>'+customerInfo.address+'</StreetAddress>';
+				hcp += '<ZipCode>'+customerInfo.zip+'</ZipCode>';
+				hcp += '<CustomerName>'+customerInfo.fullName+'</CustomerName>';
+				hcp += '<ProcessCompleteUrl>'+encodeURI('https://beachmoviebistro.com/rts/procComp.php')+'</ProcessCompleteUrl>';
+				hcp += '<ReturnUrl>'+encodeURI('https://beachmoviebistro.com/showtimes')+'</ReturnUrl>';
+				hcp += '</Packet>';
+				hcp += '</Data>';
+				hcp += '</Request>';
+
 				// send xhr request
 				$.ajax({
 				  url: '/rts/req.php',
@@ -67,6 +126,7 @@ $(function(){
 				  data: {'req':hcp}
 				}).done(function(data) {
 					var res = jQuery.parseJSON(data);
+					console.log(res);
 				
 					if(res.Packet.CreatePayment.Worked == 1){
 					
@@ -76,10 +136,15 @@ $(function(){
 								hostCheckout: res,
 								selTime: orderSys.selTime,
 								movieData: movieInfo,
-								performanceId: showID,
+								performanceId: orderSys.selShowID,
 								selTicketsQty: orderSys.selTicketsQty,
 								orderSum: orderSys.orderSum,
-								email: orderSys.email
+								email: orderSys.email,
+								customerInfo: {
+										fullName: $('.fullNameValidate').val(),
+										streetAddress: $('.orderAddressValidate').val(),
+										zipCode: $('.zipCodeValidate').val()
+									}
 							};
 						
 						// save transaction data to local session variable for retrieval after payment
@@ -96,7 +161,7 @@ $(function(){
 				});
 			}
 		},
-		orderReview: function(showID, movieID){
+		orderReview: function(movieID){
 			var k = 0,
 				curTicket = 0,
 				orderSum = 0,
@@ -117,6 +182,7 @@ $(function(){
 				tiOpts += '</div>';
 				tiOpts += '<div class="col-md-7"><h4>'+orderSys.selTime+'</h4><p>';
 				tiOpts += '<em style="color:#ca0012">There is a $' + Number(orderSys.convFee).toFixed(2) + ' online convenience fee per ticket</em></br>';
+
 				for(k = 0; k < ticketsTot; ++k){
 					curTicket = $('.'+orderSys.selTickets[k].Code).val();
 					orderSys.selTicketsQty.push({code:orderSys.selTickets[k].Code, qty:curTicket});
@@ -131,7 +197,12 @@ $(function(){
 					tiOpts += '<p style="text-align:right">';
 					tiOpts += 'Total: $' + Number(orderSys.orderSum).toFixed(2);
 				}
+				tiOpts += '<p style="color:red;text-align:left"><em>**All fields are required.</em></p>';
 				tiOpts += '<input name="rtsEmail" class="rtsEmail form-control" id="rtsEmail" placeholder="please enter your email address">';
+				tiOpts += '<input name="rtsEmailValidate" class="rtsEmailValidate form-control" id="rtsEmailValidate" placeholder="please re-enter your email address">';
+				tiOpts += '<input name="fullName" class="fullNameValidate form-control" id="fullName" placeholder="please enter your full name">';
+				tiOpts += '<input name="orderAddress" class="orderAddressValidate form-control" id="orderAddress" placeholder="please enter your street address">';
+				tiOpts += '<input name="zipCode" class="zipCodeValidate form-control" id="zipCode" placeholder="please enter your zip or postal code">';
 				tiOpts += '</div>';
 				tiOpts += '</div>';
 			
@@ -139,11 +210,12 @@ $(function(){
 			if(orderSys.orderSum > 0){
 				$('.modal-body').html(tiOpts);
 				// update modal submission trigger
-				$('.modal-footer .btn-primary').attr('onclick','orderSys.submitOrder('+showID+','+movieID+')');
+				$('.modal-footer .btn-primary').attr('onclick','orderSys.submitOrder('+movieID+')');
 			}
 		},
 		// gather show data
 		getShow: function(performanceID, movieID, callback){
+			
 			var m = 0,
 				s = 0,
 				showLimit = 0,
@@ -152,6 +224,9 @@ $(function(){
 				limit = films.length,
 				buyLink = '',
 				results = [];
+				
+			// store selected performanceID
+			orderSys.selShowID = performanceID;
 				
 			// walk through found movie showtimes
 			for(m; m < limit; ++m){
@@ -166,7 +241,6 @@ $(function(){
 					
 						// compare event dates
 						for(s = 0; s < showLimit; ++s){
-							
 							if(Number(shows[s].ID) === Number(performanceID)){
 								orderSys.selShow = shows[s];
 								callback(shows[s], movieID);
@@ -195,7 +269,7 @@ $(function(){
 				showTicksLimit = Tis.length,
 				ticketsTot = 0,
 				movieInfo = movieData[movieID];
-
+				
 			if(typeof show.TIs.TI.length !== 'undefined'){
 				// walkthrough available ticket options
 				for(i = 0; i < limitTickets; ++i){
@@ -231,6 +305,7 @@ $(function(){
 				tiOpts += 'Runtime: ' + movieInfo.runtime + ' minutes</p>';
 				tiOpts += '</div>';
 				tiOpts += '<div class="col-md-7"><h4>'+orderSys.selTime+'</h4><p>';
+
 				if(ticketsTot){
 					for(k = 0; k < ticketsTot; ++k){
 						tiOpts += '<div class="row">';
@@ -260,7 +335,7 @@ $(function(){
 			});
 			
 			// update modal submission trigger
-			$('.modal-footer .btn-primary').attr('onclick','orderSys.orderReview('+show.ID+','+movieID+')');
+			$('.modal-footer .btn-primary').attr('onclick','orderSys.orderReview('+movieID+')');
 		},
 		// check availability, present options
 		pickTickets: function(performanceID, movieID, selTime){
@@ -270,8 +345,9 @@ $(function(){
 			$('.modal-footer .btn-default').show();
 			$('.modal-body').html('<p style="text-align:center"><img src="/application/blocks/west_world_media/img/loading.gif" alt="loading" style="width:200px;height:auto"></p>');
 			$('#orderModal').modal({
-            backdrop: jQuery.usingSafari(true) ? "static" : true,
-            show:true});
+				backdrop: jQuery.usingSafari(true) ? "static" : true,
+				show:true
+			});
 
 			// check availability
 			var req = '<Request>';
@@ -293,11 +369,18 @@ $(function(){
 			  method: 'post',
 			  data: {'req':req}
 			}).done(function(data) {
-				var res = jQuery.parseJSON(data);
+				var res = jQuery.parseJSON(data),
+					maxSales = 0;
 				var intSoldOut = res.SoldOut_Internet;
-				var maxSales = res.TotalSeats - intSoldOut;
 				
-				if(res.Sold < maxSales){
+				// set maxmimum available seats
+				if(Number(res.TotalSeats) === 0){
+					maxSales = orderSys.defMaxSales;
+				} else {
+					maxSales = res.TotalSeats;
+				}
+
+				if(Number(res.Sold) < Number(maxSales)){
 					orderSys.getShow(performanceID, movieID, orderSys.genTicketOpts);
 				} else {
 					$('.modal-body').html('Sorry! No tickets available at this time!');
@@ -319,7 +402,15 @@ $(function(){
 
 				var res = jQuery.parseJSON(data),
 					movieInfo = res.movieData,
-					respCode = 0;
+					respCode = 0,
+					resMsg = '';
+														
+				// assign return message
+				if(typeof res.rtsResult.ErrorText !== 'undefined'){
+					resMsg = res.rtsResult.ErrorText + '<br> A possible hold has been applied to your account in the purchase amount for up to 24 or 48 hours.';
+				} else {
+					resMsg = res.paymentRes.ReturnMessage;
+				}
 
 				// gen output markup
 				var tiOpts = '<div class="row ticket-select">';
@@ -333,7 +424,7 @@ $(function(){
 
 					tiOpts += '<p style="text-align:right">';
 					tiOpts += '<b>Payment Results:</b><br>';
-					tiOpts += res.paymentRes.ReturnMessage+'<br>';
+					tiOpts += resMsg+'<br>';
 					
 					// get response code
 					if(typeof res.rtsResult.Packet !== 'undefined'){
@@ -347,8 +438,11 @@ $(function(){
 						orderSys.email = res.email;
 						orderSys.orderSum = res.orderSum;
 						orderSys.selTime = res.selTime;
+						orderSys.selShowID = res.performanceId;
+						orderSys.selTicketsQty = res.selTicketsQty;
+						orderSys.customerInfo = res.customerInfo;
 						$('.modal-footer .btn-primary').html('Try Again?');
-						$('.modal-footer .btn-primary').attr('onclick','orderSys.submitOrder('+res.performanceId+','+res.movieData.movie_id+')');
+						$('.modal-footer .btn-primary').attr('onclick','orderSys.submitOrder('+res.movieData.movie_id+')');
 					} else {
 						tiOpts += 'Your receipt has been emailed. Please print or have your email available on mobile device upon arrival. See you at the movies!<br>';
 						$('.modal-footer .btn-primary').attr('onclick','$(\'#orderModal\').modal(\'hide\')');

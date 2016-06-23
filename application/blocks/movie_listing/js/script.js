@@ -25,7 +25,7 @@ $(function() {
 					showTime12 = moment(showTime,["HHmm"]).format("h:mm A");
 					showDateTime = moment(showData.showDate,["YYYYMMDDHHmm"]).format("dddd, MMMM D, YYYY h:mm A");
 					
-					buyLink = '<a href="javascript:void(0)" onclick="orderSys.pickTickets('+showData.show.ID+','+showData.movie.movie_id+',\''+showDateTime+'\')">' + showTime12 + '</a>';
+					buyLink = '<a href="javascript:void(0)" onclick="orderSys.pickTickets(\''+showData.show.ID+'\','+showData.movie.movie_id+',\''+showDateTime+'\')">' + showTime12 + '</a>';
 					
 					return buyLink;
 				}
